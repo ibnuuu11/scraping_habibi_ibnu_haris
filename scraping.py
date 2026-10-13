@@ -1,146 +1,119 @@
-import pandas as pd
+
 import requests
 from urllib.request import urlopen, Request
 from urllib.error import HTTPError, URLError
 from bs4 import BeautifulSoup
+import pandas as pd
 
-HEADERS = {
-    "User-Agent": "Mozilla/5.0"
-}
+BASE_URL = "https://www.detik.com/"
+HEADERS = {"User-Agent": "Mozilla/5.0"}
 
 def demo_1_requests():
-    url = "https://www.detik.com/"
-    res = requests.get(url, headers=HEADERS)
-    print(res.status_code)
-    print(res.content[:500])
+    print("\n=== DEMO 1: REQUESTS ===")
+    response = requests.get(BASE_URL, headers=HEADERS, timeout=15)
+    print("Status:", response.status_code)
+    print(response.text[:500])
 
 def demo_2_urlopen():
-    url = "https://www.detik.com/"
-    req = Request(url, headers=HEADERS)
-    html = urlopen(req)
-    content = html.read()
-    print(content[:500])
+    print("\n=== DEMO 2: URLOPEN ===")
+    req = Request(BASE_URL, headers=HEADERS)
+    with urlopen(req, timeout=15) as response:
+        html = response.read().decode("utf-8", errors="ignore")
+    print(html[:500])
 
 def demo_3_title():
-    url = "https://www.detik.com/"
-    response = requests.get(url, headers=HEADERS)
+    print("\n=== DEMO 3: TITLE ===")
+    response = requests.get(BASE_URL, headers=HEADERS, timeout=15)
     soup = BeautifulSoup(response.text, "html.parser")
-    title = soup.title
-    print(title)
+    print("Title:", soup.title.get_text(strip=True) if soup.title else "Tidak ditemukan")
 
 def demo_4_find():
-    url = "https://www.detik.com/"
-    response = requests.get(url, headers=HEADERS)
+    print("\n=== DEMO 4: FIND H1 ===")
+    response = requests.get(BASE_URL, headers=HEADERS, timeout=15)
     soup = BeautifulSoup(response.text, "html.parser")
-    title = soup.find("h1")
-    print(title)
+    tag = soup.find("h1")
+    print(tag.get_text(" ", strip=True) if tag else "H1 tidak ditemukan")
 
 def demo_5_find_class():
-    url = "https://www.detik.com/"
-    response = requests.get(url, headers=HEADERS)
+    print("\n=== DEMO 5: FIND CLASS ===")
+    response = requests.get(BASE_URL, headers=HEADERS, timeout=15)
     soup = BeautifulSoup(response.text, "html.parser")
-    title = soup.find("h1")
-
-    if title:
-        print(title.get_text(strip=True))
-    else:
-        print("Tag h1 tidak ditemukan")
+    tag = soup.find(class_=True)
+    print(tag.get_text(" ", strip=True) if tag else "Elemen ber-class tidak ditemukan")
 
 def demo_6_find_all():
-    url = "https://www.detik.com/"
-    response = requests.get(url, headers=HEADERS)
+    print("\n=== DEMO 6: FIND ALL H2 ===")
+    response = requests.get(BASE_URL, headers=HEADERS, timeout=15)
     soup = BeautifulSoup(response.text, "html.parser")
-    titles = soup.find_all("h2")
-
-    for item in titles:
-        print(item.get_text(strip=True))
+    for i, tag in enumerate(soup.find_all("h2")[:20], start=1):
+        print(f"{i}. {tag.get_text(' ', strip=True)}")
 
 def demo_7_csv():
-    url = "https://www.detik.com/"
-    response = requests.get(url, headers=HEADERS)
+    print("\n=== DEMO 7: SIMPAN KE CSV ===")
+    response = requests.get(BASE_URL, headers=HEADERS, timeout=15)
     soup = BeautifulSoup(response.text, "html.parser")
-    titles = soup.find_all("h2")
-
-    data = []
-    for item in titles:
-        text = item.get_text(strip=True)
-        if text:
-            data.append(text)
-
-    print(data)
-
-    df = pd.DataFrame(data, columns=["title"])
-    df.to_csv("detik.csv", index=False)
-    print("Data berhasil disimpan ke detik.csv")
+    data = [
+        tag.get_text(" ", strip=True)
+        for tag in soup.find_all("h2")
+        if tag.get_text(" ", strip=True)
+    ]
+    df = pd.DataFrame(data, columns=["Judul Berita"])
+    df.to_csv("detik.csv", index=False, encoding="utf-8-sig")
+    print(df.head())
+    print("Data disimpan ke detik.csv")
 
 def demo_8_parser():
-    url = "https://www.detik.com/"
-
-    req = Request(url, headers=HEADERS)
-    html = urlopen(req)
-    soup1 = BeautifulSoup(html.read(), "html.parser")
-    print("Dengan html.parser:", soup1.title)
-
-    req = Request(url, headers=HEADERS)
-    html = urlopen(req)
-    soup2 = BeautifulSoup(html.read(), "lxml")
-    print("Dengan lxml:", soup2.title)
+    print("\n=== DEMO 8: PERBANDINGAN PARSER ===")
+    response = requests.get(BASE_URL, headers=HEADERS, timeout=15)
+    for parser in ["html.parser", "lxml"]:
+        soup = BeautifulSoup(response.text, parser)
+        print(parser, "->", soup.title.get_text(strip=True) if soup.title else "Title tidak ditemukan")
 
 def demo_9_exception():
-    url = "https://www.detik.com/website-tidak-ada-123456"
-
+    print("\n=== DEMO 9: EXCEPTION ===")
     try:
-        html = urlopen(url)
+        req = Request("https://www.detik.com/halaman-yang-tidak-ada-12345", headers=HEADERS)
+        with urlopen(req, timeout=15) as response:
+            print("Status:", response.status)
     except HTTPError as e:
-        print("HTTP Error:", e)
+        print("HTTP Error:", e.code)
     except URLError as e:
-        print("The server could not be found!")
-    else:
-        print("It Worked!")
+        print("URL Error:", e.reason)
+    except Exception as e:
+        print("Error:", e)
 
 def getTitle(url):
-    try:
-        req = Request(url, headers=HEADERS)
-        html = urlopen(req)
-    except HTTPError:
-        return None
-    except URLError:
-        return None
-
-    try:
-        bs = BeautifulSoup(html.read(), "html.parser")
-        title = bs.title
-    except AttributeError:
-        return None
-
-    return title
+    req = Request(url, headers=HEADERS)
+    with urlopen(req, timeout=15) as response:
+        soup = BeautifulSoup(response.read(), "html.parser")
+    return soup.title.get_text(strip=True) if soup.title else "Title tidak ditemukan"
 
 def demo_10_gettitle():
-    title = getTitle("https://www.detik.com/")
-
-    if title is None:
-        print("Title could not be found")
-    else:
-        print(title.get_text(strip=True))
+    print("\n=== DEMO 10: GET TITLE ===")
+    try:
+        print(getTitle(BASE_URL))
+    except Exception as e:
+        print("Gagal mengambil title:", e)
 
 def jalankan(nama, fungsi):
-    print("\n" + "=" * 60)
-    print(nama)
-    print("=" * 60)
-
     try:
         fungsi()
     except Exception as e:
-        print("Terjadi error:", e)
+        print(f"{nama} gagal: {e}")
 
 if __name__ == "__main__":
-    jalankan("1. Requests Module", demo_1_requests)
-    jalankan("2. urlopen", demo_2_urlopen)
-    jalankan("3. soup.title - Detik.com", demo_3_title)
-    jalankan("4. soup.find('h1') - Detik.com", demo_4_find)
-    jalankan("5. find dengan class", demo_5_find_class)
-    jalankan("6. find_all dengan loop", demo_6_find_all)
-    jalankan("7. Scraping to CSV - Detik.com", demo_7_csv)
-    jalankan("8. Parser html.parser vs lxml", demo_8_parser)
-    jalankan("9. Exceptions", demo_9_exception)
-    jalankan("10. getTitle - Detik.com", demo_10_gettitle)
+    demos = [
+        ("Demo 1", demo_1_requests),
+        ("Demo 2", demo_2_urlopen),
+        ("Demo 3", demo_3_title),
+        ("Demo 4", demo_4_find),
+        ("Demo 5", demo_5_find_class),
+        ("Demo 6", demo_6_find_all),
+        ("Demo 7", demo_7_csv),
+        ("Demo 8", demo_8_parser),
+        ("Demo 9", demo_9_exception),
+        ("Demo 10", demo_10_gettitle),
+    ]
+
+    for nama, fungsi in demos:
+        jalankan(nama, fungsi)
